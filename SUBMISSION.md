@@ -209,37 +209,37 @@ tests/test_tools.py::test_run_tool_rejects_bad_arguments PASSED          [100%]
 
 | Run | Strategy | Correct /20 | Unanswered | Input tokens | Output tokens | Median seconds per question | Total seconds | Cost ($) |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| 1 | S1 direct | | | | | | | |
-| 1 | S2 think and vote (k = ) | | | | | | | |
-| 1 | S3 tools | | | | | | | |
-| 2 | S1 direct | | | | | | | |
-| 2 | S2 think and vote (k = ) | | | | | | | |
-| 2 | S3 tools | | | | | | | |
+| 1 | S1 direct | 11 | 1 | 43,600 | 1,408 | 1.7 | 36.0 | 0.0104 |
+| 1 | S2 think and vote (k = ) | 13 | 0 | 218,900 | 7,277 | 9.0 | 181.4 | 0.0525 |
+| 1 | S3 tools | 20 | 0 | 50,837 | 4,484 | 5.5 | 114.6 | 0.0155 |
+| 2 | S1 direct | 12 | 0 | 43,600 | 1,325	| 1.7 | 36.3 | 0.0103 |
+| 2 | S2 think and vote (k = ) | 14 | 0 | 218,900 | 7,193 | 8.3 | 165.1 | 0.0524 |
+| 2 | S3 tools | 20 | 0 | 49,961 | 4,500 | 5.4 | 113.4 | 0.0154 |
 
 **Per question (run 1):**
 
 | Question | S1 | S2 | S3 |
 |---|:---:|:---:|:---:|
-| Q-01 | | | |
-| Q-02 | | | |
-| Q-03 | | | |
-| Q-04 | | | |
-| Q-05 | | | |
-| Q-06 | | | |
-| Q-07 | | | |
-| Q-08 | | | |
-| Q-09 | | | |
-| Q-10 | | | |
-| Q-11 | | | |
-| Q-12 | | | |
-| Q-13 | | | |
-| Q-14 | | | |
-| Q-15 | | | |
-| Q-16 | | | |
-| Q-17 | | | |
-| Q-18 | | | |
-| Q-19 | | | |
-| Q-20 | | | |
+| Q-01 | ✓ | ✓ | ✓ |
+| Q-02 | ✓ | ✓ | ✓ |
+| Q-03 | ✗ | ✓ | ✓ |
+| Q-04 | ✓ | ✓ | ✓ |
+| Q-05 | ✗ | ✗ | ✓ |
+| Q-06 | ✓ | ✓ | ✓ |
+| Q-07 | ✓ | ✗ | ✓ |
+| Q-08 | ✗ | ✓ | ✓ |
+| Q-09 | ✓ | ✓ | ✓ |
+| Q-10 | ✓ | ✓ | ✓ |
+| Q-11 | ✗ | ✗ | ✓ |
+| Q-12 | ✗ | ✓ | ✓ |
+| Q-13 | ✗ | ✗ | ✓ |
+| Q-14 | ✓ | ✓ | ✓ |
+| Q-15 | ✓ | ✗ | ✓ |
+| Q-16 | ✓ | ✓ | ✓ |
+| Q-17 | ✗ | ✗ | ✓ |
+| Q-18 | ✗ | ✓ | ✓ |
+| Q-19 | ✓ | ✓ | ✓ |
+| Q-20 | ✗ (unanswered | ✗ | ✓ |
 
 ---
 
@@ -249,13 +249,16 @@ tests/test_tools.py::test_run_tool_rejects_bad_arguments PASSED          [100%]
 
 | Question | Calls (your description) | Calls (vague) | Answer (yours) | Answer (vague) |
 |---|---:|---:|---|---|
-| | | | | |
+| Q-17 | ? | ? | harrowfield,884.46 | harrowfield,884.46 |
+| Q-18 | ? | ? | brightwater, 72.45615 | brightwater, 72.45615 |
 
 ### C2 — Three mistakes explained
 
 ### C3 — Which strategy I would use, and what would change it
+I would use S3. It was 20/20 in both runs, at about 1.5× the cost of S1 ($0.0155 vs $0.0104). S1 is cheapest and fastest (median 1.7 s) but only 11–12/20. S2 costs about 5× S1 ($0.052) for only +2 correct, and it still fails on questions where the model makes the same mistake every time, so voting cannot fix it. What would change my choice: if the corpus were much larger, S1 and S2 would get far more expensive because every call carries all documents; if latency mattered more than accuracy, S1 would win; if the tools were unreliable or slow, S3 would lose its edge. 
 
 ### C4 — How sure I can be
+With 20 questions, one question is 5 percentage points. S1 moved 11→12 and S2 13→14 between runs, so a 1-question gap is within noise. The gap between S3 (20/20) and S1/S2 (11–14) is much larger than that. S3 still could not prove 100% accuracy; it only shows no errors in 40 tries (2 runs × 20 questions). Also, the questions are the same in both runs, so the two runs are not independent evidence.
 
 ### Final questions
 
