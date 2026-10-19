@@ -1,4 +1,3 @@
-"""Two tools for the LLM: lookup (facts from the corpus) and calculate (safe arithmetic)."""
 import ast
 import difflib
 import json
