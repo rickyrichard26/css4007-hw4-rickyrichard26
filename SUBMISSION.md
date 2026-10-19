@@ -101,22 +101,38 @@ answers every `tool_call_id`, enforces the round limit and writes the log.**
 **Worst thing it could do with strange or dangerous input: with `eval`, it could run any Python code (for example `__import__('os').system(...)`). I prevent this by parsing with `ast` and allowing only numeric constants and `+ - * / ** %`. Limits on input length and exponent size stop `9**9**9` from freezing the program.**
 
 ### A3 — Q-09 by hand
+```json
 [
-  {"role": "user", "content": "<TODO: Q-09 text>"},
+  {"role": "user", "content": "TODO paste the exact Q-09 text here"},
   {"role": "assistant", "tool_calls": [
-    {"id": "call_1", "type": "function", "function": {"name": "lookup", "arguments": "{\"district\": \"<TODO>\", \"field\": \"<TODO>\"}"}},
-    {"id": "call_2", "type": "function", "function": {"name": "lookup", "arguments": "{\"district\": \"<TODO>\", \"field\": \"<TODO>\"}"}}
+    {"id": "call_1", "type": "function", "function": {"name": "lookup", "arguments": "{\"district\": \"Brightwater\", \"field\": \"population\"}"}},
+    {"id": "call_2", "type": "function", "function": {"name": "lookup", "arguments": "{\"district\": \"Brightwater\", \"field\": \"area_km2\"}"}},
+    {"id": "call_3", "type": "function", "function": {"name": "lookup", "arguments": "{\"district\": \"Millbrook\", \"field\": \"population\"}"}},
+    {"id": "call_4", "type": "function", "function": {"name": "lookup", "arguments": "{\"district\": \"Millbrook\", \"field\": \"area_km2\"}"}}
   ]},
-  {"role": "tool", "tool_call_id": "call_1", "content": "{\"value\": <TODO>, \"unit\": \"<TODO>\", \"source\": \"NR-05\"}"},
-  {"role": "tool", "tool_call_id": "call_2", "content": "{\"value\": <TODO>, \"unit\": \"<TODO>\", \"source\": \"NR-05\", \"note\": \"corrected by NR-16\"}"},
+  {"role": "tool", "tool_call_id": "call_1", "content": "{\"value\": 44675, \"unit\": \"people\", \"source\": \"NR-05\"}"},
+  {"role": "tool", "tool_call_id": "call_2", "content": "{\"value\": 921.4, \"unit\": \"km2\", \"source\": \"NR-16\", \"note\": \"corrected by NR-16; NR-05 said 912.4\"}"},
+  {"role": "tool", "tool_call_id": "call_3", "content": "{\"value\": 37203, \"unit\": \"people\", \"source\": \"NR-11\"}"},
+  {"role": "tool", "tool_call_id": "call_4", "content": "{\"value\": 758.6, \"unit\": \"km2\", \"source\": \"NR-11\"}"},
   {"role": "assistant", "tool_calls": [
-    {"id": "call_3", "type": "function", "function": {"name": "calculate", "arguments": "{\"expression\": \"<TODO>\"}"}}
+    {"id": "call_5", "type": "function", "function": {"name": "calculate", "arguments": "{\"expression\": \"44675 / 921.4\"}"}},
+    {"id": "call_6", "type": "function", "function": {"name": "calculate", "arguments": "{\"expression\": \"37203 / 758.6\"}"}}
   ]},
-  {"role": "tool", "tool_call_id": "call_3", "content": "{\"result\": <TODO>}"},
-  {"role": "assistant", "content": "<TODO short explanation>\nANSWER: <name> | <number>"}
+  {"role": "tool", "tool_call_id": "call_5", "content": "{\"result\": 48.486}"},
+  {"role": "tool", "tool_call_id": "call_6", "content": "{\"result\": 49.0417}"},
+  {"role": "assistant", "tool_calls": [
+    {"id": "call_7", "type": "function", "function": {"name": "calculate", "arguments": "{\"expression\": \"49.0417 - 48.486\"}"}}
+  ]},
+  {"role": "tool", "tool_call_id": "call_7", "content": "{\"result\": 0.5557}"},
+  {"role": "assistant", "content": "Millbrook is denser: about 49.04 people per km2 against 48.49 for Brightwater, a difference of 0.56 people per km2.\nANSWER: Millbrook | 0.56"}
 ]
+```
 
-**My arithmetic: TODO. Write the calculation step by step, then check that it equals value (rounded to decimals) for Q-09. Use the correct answer in the file only to check my work, never inside a prompt.**
+**My arithmetic:**
+- Brightwater uses the corrected area from NR-16 (921.4, not the 912.4 printed in NR-05): 44,675 / 921.4. Since 921.4 × 48 = 44,227.2 and the remainder is 447.8, which is 0.486 of 921.4, the density is about 48.486 people/km2.
+- Millbrook (NR-11): 37,203 / 758.6. Since 758.6 × 49 = 37,171.4 and the remainder is 31.6, which is 0.0417 of 758.6, the density is about 49.042 people/km2.
+- Difference: 49.042 − 48.486 = 0.556, which rounds to 0.56. Millbrook is denser.
+- If I had used the wrong area 912.4, Brightwater would be about 48.96 and the difference only about 0.08, so the correction notice changes the answer.
 
 ### A4 — Why I split it this way
 I could have made one big answer_question(question) tool that does the lookup, the arithmetic and the comparison inside my own code. I did not choose it because it hides all the work from the model, so S3 would no longer test whether the model can use tools: it would just be my code answering. It is also brittle, because every new question type needs new code. With two small tools, the model decides what to look up and which numbers to compute, and I can inspect every step in the logs. Keeping calculate separate from lookup also gives me one safe, reusable arithmetic tool instead of many one-off formulas.
@@ -178,17 +194,18 @@ tests/test_tools.py::test_run_tool_rejects_bad_arguments PASSED          [100%]
 
 ### B3 — The loop
 
-- Round limit, and why:
-- Where the logs are:
-- Real Q-09 conversation compared with my A3 version, what is different:
+- Round limit, and why: 8. Q-09 needed 4 rounds: one round with 4 parallel `lookup` calls, two rounds of `calculate`, and one round for the final answer. A question with a retry after an error needs a few more, so 8 is double what Q-09 needed and normal questions are never cut off. If the model keeps repeating a bad call, the loop stops after 8 API calls and the question counts as unanswered, so it cannot run up cost. TODO after the full runs: write the largest number of rounds I saw in the S3 logs (which question, how many) and say whether 8 was enough.
+- Where the logs are: in `outputs/`. `S3_run1.json` and `S3_run2.json` contain, for every question, the number of rounds, each tool call with its arguments, result and duration, and the token usage. The first test run on Q-09 alone is `outputs/S3_run1_partial.json`.
+- Real Q-09 conversation compared with my A3 version, what is different: The real run used 4 rounds and 7 tool calls (3,087 input tokens, 244 output tokens, 14.9 s). In round 1 the model asked for all four lookups at once (population and area of Brightwater and Millbrook). In round 2 it called `calculate` for each density (44675 / 921.4 and 37203 / 758.6). In round 3 it called `calculate` once more for the difference, by repeating both divisions in one expression instead of subtracting my two results. Round 4 was the final answer, `ANSWER: Millbrook | 0.56`. The Brightwater area came back as 921.4 from NR-16, with a note that NR-05 said 912.4, so the correction notice worked. Differences from A3: TODO (edit this to match what you wrote in A3, for example the model batched the lookups instead of calling them one by one, the third `calculate` call was redundant, and the model did the rounding to 0.56 itself because `calculate` returns the unrounded 0.5557). I completed the A3 walkthrough after my first test run of Q-09, so it is not an independent prediction.
 
 ### B4 — Three strategies
 
-**What I kept the same:**
+**What I kept the same: the model (gpt-5.6-luna through the Chat Completions API), the same 20 questions in the same order, the same final-line format `ANSWER: <name or yes/no> | <number>` read by the same parser, and the same grader. S1 and S2 get the text of all 17 documents in the system message; S2 only adds "think step by step" and samples k = 5 times (temperature: TODO write what you found, accepted or default). S3 gets no documents, only the two tools (`lookup`, `calculate`) with a round limit of 8. Only the question text is sent to the model; the expected answers are used only by the grader.
+**
 
 <!-- model, temperature, k, prompts, answer format, anything else -->
 
-**My rule for a correct answer** (written before the first full run):
+**My rule for a correct answer** (written before the first full run): the name matches the expected answer exactly (ignoring upper/lower case), and the number equals the expected value rounded to `decimals`, with a difference of at most one in the last digit allowed. If there is no parseable `ANSWER:` line, the question counts as unanswered and wrong.
 
 | Run | Strategy | Correct /20 | Unanswered | Input tokens | Output tokens | Median seconds per question | Total seconds | Cost ($) |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
