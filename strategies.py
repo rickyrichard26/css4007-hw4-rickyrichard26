@@ -1,4 +1,3 @@
-"""S1 direct, S2 think-and-vote (k=5), S3 tools. Same model, same answer format."""
 import json
 import re
 import time
