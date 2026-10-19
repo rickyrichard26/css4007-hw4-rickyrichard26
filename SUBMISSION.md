@@ -1,6 +1,9 @@
 # HW4 — submission
 
-**AI assistance:** <!-- what you used, and for what. "None" is an answer too. -->
+**AI assistance:** I used Claude (Anthropic) for the following:
+Debugging setup: diagnosing a KeyError for OPENROUTER_API_KEY (.env location and encoding) and a ModuleNotFoundError caused by running outside the virtual environment.
+Running the experiments: getting the PowerShell commands for the runs (run.py options), for saving outputs, and for a script that reads my outputs/*.json files.
+Measuring tool-definition tokens: a short script comparing prompt_tokens with and without tools (with reasoning_effort="none", because the model rejects tools with reasoning on /v1/chat/completions).
 
 ---
 
@@ -246,13 +249,40 @@ tests/test_tools.py::test_run_tool_rejects_bad_arguments PASSED          [100%]
 ## Part C — Explain and choose (Hard)
 
 ### C1 — Does the tool description matter?
+I ran S3 on all 20 questions with my description and with --vague (lookup described only as “Looks things up.”). Accuracy was 20/20 in both cases and every answer was identical. The effect was on the number of tool calls: 125 with my description and 141 with the vague one (+13%).
 
 | Question | Calls (your description) | Calls (vague) | Answer (yours) | Answer (vague) |
 |---|---:|---:|---|---|
-| Q-17 | ? | ? | harrowfield,884.46 | harrowfield,884.46 |
-| Q-18 | ? | ? | brightwater, 72.45615 | brightwater, 72.45615 |
+| Q-08 | 4 | 9 | brightwater, 72.45615 | brightwater, 72.45615 |
+| Q-17 | 6 | 11 | harrowfield, 884.46 | harrowfield, 884.46 |
+| Q-03 | 6 | 9 | lindenmoor, 5.34 | lindenmoor, 5.34 |
+
+The vague description does not break the tool because the parameter schema, including the enum of valid fields, is still sent, and lookup returns helpful errors. What is lost are the usage hints (“call once per district per field”, “check the unit”, how to use Region), and on some questions the model made more calls without them. One side effect surprised me: total input tokens were lower with the vague description (47,496 vs 50,837). On questions with the same number of rounds and calls (Q-06, Q-10, Q-16, Q-18), the vague version used 274–276 fewer input tokens in total, which is about 92 tokens less per request over 3 requests. So my longer description costs about 92 tokens on every round. Cost depends on rounds, not only on calls, because parallel calls in one round share one request.
 
 ### C2 — Three mistakes explained
+S1 (direct), Q-05, wrong in both runs. Raw reply from the log:
+
+Stonecairn: 2,884.6 million ÷ 14,926 = 193,155.03 tenge per resident
+Coldharbour: 2,366.9 million ÷ 11,407 = 207,475.24 tenge per resident
+Difference: 14,320.21 tenge per resident
+ANSWER: Coldharbour | 14,320.21 tenge per resident
+
+The facts and the method are right (and so is the district), but both divisions are wrong. My own check gives about 193,260 and about 207,495, so the true difference is about 14,235, which matches S3 (14235.31). The model made two different small errors in the last digits, and in run 2 it gave yet another wrong number (14333.84). A language model produces digits by prediction, so long division with 4–6 digit numbers gives a plausible number that changes from run to run, and S1 has no way to check it.
+
+S2 (think and vote), Q-13, wrong in both runs. The votes in the log were all the same district:
+
+[[‘stonecairn’, 3.53], [‘stonecairn’, 3.53], [‘stonecairn’, 3.54], [‘stonecairn’, 3.53], [‘stonecairn’, 3.54]]
+
+The first sample reads: “(15,473 − 14,926) / 15,473 × 100 ≈ 3.53%”. The arithmetic is correct (547/15,473 = 3.535%), so the 3.53 vs 3.54 difference is only rounding. The mistake is in the inputs: S3 answered coldharbour, 4.16, so the model compared the wrong figures or the wrong set of districts. Voting fixes random errors. For example, on Q-03 S1 gave 5.16 but S2 gave the correct 5.21, because the wrong samples disagreed. On Q-13 all five samples make the same mistake, so the majority is wrong, and S1 gave the same district in both runs. Voting removes disagreement, not a shared bias, and it cost about 5× more than S1.
+
+S3 (tools), Q-20, all correct, so I picked the most expensive question (input 3,699 tokens, 10 tool calls). The log shows:
+
+Round 1: six lookup calls in parallel, budget_2025_million_tenge and population_2025 for Ossbridge, Ashgrove, and Harrowfield.
+Round 2: three calculate calls, e.g. {"expression": "9284.5 * 1000000 / 52904"} -> {"result": 175497.12687131407}.
+Round 3: {"expression":"178490.46970728386 - 175497.12687131407"} -> {"result": 2993.3428359697864}.
+Round 4: the final answer, ashgrove | 2993.34.
+
+The loop needs 4 rounds because each step depends on the one before it. The model cannot divide before it has the budget and population, and it cannot take the difference before it has the per-resident values. Independent calls go into the same round (6 lookups, then 3 calculations), so the number of rounds equals the length of the dependency chain, not the number of calls. Each round costs more than the previous one because the API is stateless: every request resends the system prompt, the tool definitions, the question, and all earlier tool calls and results. The input of round n is a fixed base plus everything from rounds 1 to n−1. A calculator removes errors the model cannot avoid because the model only writes the expression and calculate does the arithmetic exactly. S3 gave the same 14235.31 on Q-05 in both runs, while S1 gave 14320.21 and 14333.84.
 
 ### C3 — Which strategy I would use, and what would change it
 I would use S3. It was 20/20 in both runs, at about 1.5× the cost of S1 ($0.0155 vs $0.0104). S1 is cheapest and fastest (median 1.7 s) but only 11–12/20. S2 costs about 5× S1 ($0.052) for only +2 correct, and it still fails on questions where the model makes the same mistake every time, so voting cannot fix it. What would change my choice: if the corpus were much larger, S1 and S2 would get far more expensive because every call carries all documents; if latency mattered more than accuracy, S1 would win; if the tools were unreliable or slow, S3 would lose its edge. 
@@ -262,11 +292,11 @@ With 20 questions, one question is 5 percentage points. S1 moved 11→12 and S2 
 
 ### Final questions
 
-1.
-2.
-3.
-4.
-5.
-6.
-7.
-8.
+1. Nothing has run yet. A tool_calls message is only the model’s request. My own code has to parse it, run the function, and send back a tool message for every tool_call_id.
+2. The model produces text, so arguments is a JSON string. It can be invalid or have missing or wrong fields. If I pass the string straight into a function, I get a str where a dict is expected. So I use json.loads with a JSONDecodeError check, and run_tool returns {"error": "arguments must be a JSON object"} when the result is not a dict, which the model can read and fix.
+3. [N] tokens, measured as prompt_tokens with tools=TOOLS minus without, on the same message. This is paid in every round, so a 4-round question pays it 4 times. From the C1 data, my lookup description alone is about 92 tokens longer than the vague one.
+4. S2 cost 5.05× S1 in run 1 ($0.0525 vs $0.0104) and about the same in run 2 ($0.0524 vs $0.0103). Input was 218,900 vs 43,600 tokens because k = 5 samples each resend all the documents. Output was 7,277 vs 1,408 because each sample reasons step by step. It bought only +2 correct answers (13 and 14 vs 11 and 12).
+5. In run 1, eight questions tie at the maximum of 4 rounds (Q-01, 05, 07, 09, 11, 12, 14, 20), and none needed more. The heaviest were Q-11 and Q-20 with 10 calls each; Q-20 had the highest input (3,699 tokens). It needs 4 rounds because of its chain: lookups, then three divisions, then the difference, then the answer. With the vague description Q-07 needed 5 rounds.
+6. lookup runs regexes over document text on every call and scans the sorted district names linearly. For 100,000 documents I would extract the facts once at ingestion into an indexed table of (district_id, field, value, unit, source, archived, corrected) rows, so lookup becomes one indexed query. I would cap the error hints (they list every valid district), use ids for duplicate names, and add a search tool for finding districts.
+7. calculate never uses eval or exec. It parses with ast and my _eval accepts only plain numbers and + - * / ** %, so names and function calls like __import__('os') raise not allowed. It also has limits: 200 characters, exponent at most 100 (so 9**9**9 is rejected), and results above 1e100 are rejected. The model can still misbehave by sending a wrong formula, which calculate computes exactly and returns as a confident wrong number. It only guarantees the arithmetic and the safety of the code, not that the question was understood.
+8. Tools helped most on multi-step arithmetic and on questions that need current, corrected facts: Q-05 (S3 14235.31 vs S1 14320.21), Q-13 (S3 correct, S1 and S2 wrong in both runs), Q-17 and Q-20. They did not help on single-fact questions that every strategy got right in both runs (Q-02, Q-04, Q-06, Q-10, Q-16, Q-19), where S3 was only slower (median about 5.5 s vs 1.7 s) and about 1.5× more expensive.
