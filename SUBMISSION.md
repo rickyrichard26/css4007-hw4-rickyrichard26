@@ -130,7 +130,50 @@ I could have made one big answer_question(question) tool that does the lookup, t
 ### B2 — Tests
 
 ```text
-<!-- pytest output -->
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.7.0 -- D:\css4007-hw4-rickyrichard26\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\css4007-hw4-rickyrichard26
+plugins: anyio-4.15.1
+collecting ... collected 35 items
+
+tests/test_tools.py::test_calculate_required_example PASSED              [  2%]
+tests/test_tools.py::test_calculate_basic_and_precedence PASSED          [  5%]
+tests/test_tools.py::test_calculate_division_by_zero PASSED              [  8%]
+tests/test_tools.py::test_calculate_invalid_syntax PASSED                [ 11%]
+tests/test_tools.py::test_calculate_refuses_import_call PASSED           [ 14%]
+tests/test_tools.py::test_calculate_refuses_attribute_access PASSED      [ 17%]
+tests/test_tools.py::test_calculate_refuses_huge_power PASSED            [ 20%]
+tests/test_tools.py::test_calculate_refuses_names_and_strings PASSED     [ 22%]
+tests/test_tools.py::test_calculate_refuses_too_long_and_non_string PASSED [ 25%]
+tests/test_tools.py::test_calculate_refuses_booleans PASSED              [ 28%]
+tests/test_tools.py::test_lookup_finds_2025_number PASSED                [ 31%]
+tests/test_tools.py::test_lookup_is_case_insensitive PASSED              [ 34%]
+tests/test_tools.py::test_lookup_applies_correction_notice PASSED        [ 37%]
+tests/test_tools.py::test_lookup_misspelled_name PASSED                  [ 40%]
+tests/test_tools.py::test_lookup_two_similar_names_stay_separate PASSED  [ 42%]
+tests/test_tools.py::test_lookup_ignores_archived_profiles PASSED        [ 45%]
+tests/test_tools.py::test_lookup_water_unit_differs_for_lindenmoor PASSED [ 48%]
+tests/test_tools.py::test_lookup_handles_missing_spaces_in_profiles PASSED [ 51%]
+tests/test_tools.py::test_lookup_uses_numbers_not_wording PASSED         [ 54%]
+tests/test_tools.py::test_lookup_water_tariff PASSED                     [ 57%]
+tests/test_tools.py::test_lookup_unknown_field_and_wrong_scope PASSED    [ 60%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Ossbridge] PASSED [ 62%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Ossford] PASSED [ 65%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Tarnvale] PASSED [ 68%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Kelmarsh] PASSED [ 71%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Brightwater] PASSED [ 74%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Stonecairn] PASSED [ 77%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Harrowfield] PASSED [ 80%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Lindenmoor] PASSED [ 82%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Redfen] PASSED [ 85%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Ashgrove] PASSED [ 88%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Millbrook] PASSED [ 91%]
+tests/test_tools.py::test_lookup_every_field_parses_for_every_district[Coldharbour] PASSED [ 94%]
+tests/test_tools.py::test_lookup_never_raises_on_bad_types PASSED        [ 97%]
+tests/test_tools.py::test_run_tool_rejects_bad_arguments PASSED          [100%]
+
+============================= 35 passed in 0.06s ==============================
 ```
 
 ### B3 — The loop
