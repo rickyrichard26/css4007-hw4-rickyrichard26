@@ -28,18 +28,19 @@ answers every `tool_call_id`, enforces the round limit and writes the log.**
 
 <!-- which step feeds which: a list, an ASCII diagram, or an image committed to the repo -->
 
-**What I am assuming:
+**What I am assuming:**
 - Only current (non-archived) profiles are used: TODO which year / which two are archived.
 - A correction notice (NR-16) overrides the value it corrects.
 - Water use is converted to one common unit before comparing: TODO the unit and factor.
 - Numbers are not rounded until the last step; rounding follows `decimals` in the question.
-- District names are matched case-insensitively; a typo is fixed only if exactly one close match exists.**
+- District names are matched case-insensitively; a typo is fixed only if exactly one close match exists.
 
 <!-- census year, archived profiles, corrections, units, where rounding happens, ... -->
 
 ### A2 — The two tools
 
 #### `lookup`
+```json
 {
   "type": "function",
   "function": {
@@ -56,15 +57,22 @@ answers every `tool_call_id`, enforces the round limit and writes the log.**
     }
   }
 }
+```
 
 | Case | What the tool returns |
-|---|---|
-| success | |
-| | |
+|------|-----------------------|
+| success | `{"district": "Brightwater", "field": "population", "value": 44675, "unit": "people", "source": "NR-xx", "note": ""}` |
+| corrected value | same as success, with `"note": "corrected by NR-16"` |
+| unknown district | `{"error": "no district named Ossbrige; did you mean Ossbridge or Ossford?"}` |
+| two similar names | `{"error": "ambiguous: X or Y; call again with the exact name"}` (TODO: real names) |
+| only archived profile | `{"error": "only an archived profile exists for X; no current data"}` |
+| unknown field | `{"error": "unknown field 'x'; valid fields: ..."}` |
+| unreadable number | `{"error": "could not read a number for field 'x' in NR-xx"}` |
 
-**Worst thing it could do with strange or dangerous input:**
+**Worst thing it could do with strange or dangerous input: silently return an old (archived) value, which would give a wrong answer. I prevent this by excluding archived profiles in code. It cannot read files, because the corpus is loaded once into memory. It returns one fact, not whole documents, so it cannot flood the context.**
 
 #### `calculate`
+```json
 {
   "type": "function",
   "function": {
@@ -80,13 +88,17 @@ answers every `tool_call_id`, enforces the round limit and writes the log.**
     }
   }
 }
+```
 
 | Case | What the tool returns |
-|---|---|
-| success | |
-| | |
+|------|-----------------------|
+| success | `{"result": 52891.7}` |
+| syntax error | `{"error": "invalid expression"}` |
+| forbidden syntax (names, calls, attributes) | `{"error": "not allowed: Call"}` |
+| division by zero | `{"error": "division by zero"}` |
+| huge exponent or very long input | `{"error": "exponent too large"}` / `{"error": "expression too long"}` |
 
-**Worst thing it could do with strange or dangerous input:**
+**Worst thing it could do with strange or dangerous input: with `eval`, it could run any Python code (for example `__import__('os').system(...)`). I prevent this by parsing with `ast` and allowing only numeric constants and `+ - * / ** %`. Limits on input length and exponent size stop `9**9**9` from freezing the program.**
 
 ### A3 — Q-09 by hand
 [
