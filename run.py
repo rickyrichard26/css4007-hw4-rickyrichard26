@@ -3,14 +3,14 @@ import json
 import statistics
 from pathlib import Path
 
-from strategies import STRATEGIES
+from strategies import STRATEGIES, s3_tools, vague_tools
 
 ROOT = Path(__file__).parent
 OUT = ROOT / "outputs"
 
 # TODO: fill from the OpenAI price page for gpt-5.6-luna (USD per 1M tokens)
-PRICE_IN_PER_M = 0.0
-PRICE_OUT_PER_M = 0.0
+PRICE_IN_PER_M = 0.20
+PRICE_OUT_PER_M = 1.20
 
 def is_correct(parsed, q) -> bool:
     if parsed is None:
@@ -22,9 +22,12 @@ def is_correct(parsed, q) -> bool:
     return abs(number - round(float(q["value"]), int(q["decimals"]))) <= tol * 1.0001
 
 
-def question_text(q) -> str:
-    # TODO: check the key name in data/questions.json ("question", "text", ...)
-    return q.get("question") or q.get("text")
+def question_text(q: dict) -> str:
+    """Return the question text. In questions.json the key is 'question'."""
+    try:
+        return q["question"]
+    except KeyError:
+        raise KeyError(f"question {q.get('id')} has no 'question' field")
 
 
 def main():
@@ -33,6 +36,7 @@ def main():
     ap.add_argument("--run", type=int, default=1)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--ids", nargs="*", help="only these question ids, e.g. Q-09")
+    ap.add_argument("--vague", action="store_true", help="C1: S3 with a vague lookup description")
     args = ap.parse_args()
 
     questions = json.loads((ROOT / "data" / "questions.json").read_text(encoding="utf-8"))
@@ -44,6 +48,10 @@ def main():
         questions = questions[: args.limit]
 
     fn = STRATEGIES[args.strategy]
+    if args.vague:
+        if args.strategy != "S3":
+            raise SystemExit("--vague only works with S3")
+        fn = lambda text: s3_tools(text, vague_tools())
     results = []
     for q in questions:
         r = fn(question_text(q))  # NEVER pass q["answer"] or q["value"] to the model
@@ -54,7 +62,8 @@ def main():
               f"in={r['usage']['input']} out={r['usage']['output']} s={r['usage']['seconds']:.1f}")
 
     OUT.mkdir(exist_ok=True)
-    path = OUT / f"{args.strategy}_run{args.run}{'_partial' if (args.limit or args.ids) else ''}.json"
+    tag = ('_vague' if args.vague else '') + ('_partial' if (args.limit or args.ids) else '')
+    path = OUT / f"{args.strategy}_run{args.run}{tag}.json"
     path.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
 
     n_ok = sum(r["correct"] for r in results)
