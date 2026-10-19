@@ -1,7 +1,3 @@
-"""Usage:  python run.py S3 --run 1 --limit 3     (test on 2-3 questions first!)
-          python run.py S1 --run 1               (full 20 questions)
-Saves outputs/<strategy>_run<N>.json and prints one summary row for SUBMISSION.md.
-"""
 import argparse
 import json
 import statistics
@@ -15,13 +11,6 @@ OUT = ROOT / "outputs"
 # TODO: fill from the OpenAI price page for gpt-5.6-luna (USD per 1M tokens)
 PRICE_IN_PER_M = 0.0
 PRICE_OUT_PER_M = 0.0
-
-# ----------------------------------------------------------------------------
-# CORRECTNESS RULE (write this in SUBMISSION.md BEFORE the first full run):
-#   name must match exactly (case-insensitive); number must equal `value`
-#   rounded to `decimals`, allowing a difference of 1 in the last digit.
-# ----------------------------------------------------------------------------
-
 
 def is_correct(parsed, q) -> bool:
     if parsed is None:
